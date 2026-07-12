@@ -270,7 +270,8 @@
 
             try {
                 // We use the same token for the Nowcast lookup
-                const url = `https://api.rainbow.ai/nowcast/v1/precip/${userLng}/${userLat}?token=${token}`;
+                const targetUrl = encodeURIComponent(`https://api.rainbow.ai/nowcast/v1/precip/${userLng}/${userLat}?token=${token}`);
+const url = `https://corsproxy.io/?${targetUrl}`;
                 const response = await fetch(url);
                 if (!response.ok) throw new Error("API Request Failed");
                 const data = await response.json();
