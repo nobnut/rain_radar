@@ -279,21 +279,31 @@
             }
         }
 
-        // --- NOWCAST FUNCTIONALITY ---
+                // --- NOWCAST FUNCTIONALITY ---
         async function showNowcast() {
             document.getElementById('nowcast-modal').style.display = 'block';
             const content = document.getElementById('nowcast-content');
             content.innerHTML = 'Loading Nowcast data...';
 
             try {
-                // We use the same token for the Nowcast lookup
-                const targetUrl = encodeURIComponent(`https://api.rainbow.ai/nowcast/v1/precip/${userLng}/${userLat}?token=${token}`);
-const url = `https://corsproxy.io/?${targetUrl}`;
-                const response = await fetch(url);
-                if (!response.ok) throw new Error("API Request Failed");
-                const data = await response.json();
+                // 1. Define the actual Rainbow API URL
+                const rainbowUrl = encodeURIComponent(`https://api.rainbow.ai/nowcast/v1/precip/${userLng}/${userLat}?token=${token}`);
                 
+                // 2. Pass it to your existing Cloudflare Worker's 'url' parameter
+                // IMPORTANT: Replace the URL below with your actual worker address!
+                const url = `https://rss-proxy.slaterjohn2.workers.dev/?url=${rainbowUrl}`;
+                
+                const response = await fetch(url);
+                
+                // Enhanced error handling to catch non-JSON responses
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`API Error ${response.status}: ${errText || "Unknown error"}`);
+                }
+                
+                const data = await response.json();
                 renderNowcast(data);
+                
             } catch (e) {
                 content.innerHTML = `<span style="color: #ef4444;">Error loading Nowcast: ${e.message}</span>`;
             }
