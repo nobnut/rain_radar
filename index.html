@@ -145,6 +145,13 @@
         const palettes = [0, 2, 4]; // 0: Rainbow, 2: Dark Sky, 4: Nexrad
         const paletteNames = ["Rainbow", "DarkSky", "Nexrad"];
         
+        // NEW: Add corresponding CSS gradients for the legend
+        const paletteGradients = [
+            "linear-gradient(to right, #72ff72, #ffff00, #ffaa00, #ff0000, #ff00ff)", // Rainbow (Your original)
+            "linear-gradient(to right, #5bc0de, #0275d8, #6610f2, #d63384)",         // Dark Sky (Blues to Purples)
+            "linear-gradient(to right, #00ecec, #00ff00, #ffff00, #ff0000, #ff00ff)" // Nexrad (Classic Radar)
+        ];
+        
         const offsets = [0, 600, 1200, 1800, 2400, 3000, 3600]; 
         
         // --- API KEY MANAGEMENT ---
@@ -241,6 +248,9 @@
             
             const timeStr = new Date(snapshot * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             document.getElementById('timestamp').innerHTML = `Radar: ${timeStr} | ${paletteNames[currentPalette]}`;
+            
+            // NEW: Update the legend bar gradient to match the current palette
+            document.querySelector('.grad').style.background = paletteGradients[currentPalette];
         }
 
         function toggleRings() {
