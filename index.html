@@ -31,13 +31,9 @@
 
         /* Range Ring Labels */
         .ring-label {
-            color: rgba(255, 255, 255, 0.7);
-            font-family: sans-serif;
-            font-size: 9px;
-            font-weight: bold;
-            text-shadow: 1px 1px 3px #000, -1px -1px 3px #000;
-            white-space: nowrap;
-            pointer-events: none;
+            color: rgba(255, 255, 255, 0.7); font-family: sans-serif; font-size: 9px;
+            font-weight: bold; text-shadow: 1px 1px 3px #000, -1px -1px 3px #000;
+            white-space: nowrap; pointer-events: none;
         }
 
         /* Bottom Controls */
@@ -49,11 +45,27 @@
         }
         .btn { 
             background: #3b82f6; border: none; color: white; width: 26px; height: 26px; 
-            border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; 
+            align-items: center; justify-content: center; font-weight: bold;
         }
         #recenter-btn { background: #4b5563; }
-        #range-btn { background: #6366f1; font-weight: bold; font-size: 10px; } 
+        #range-btn { background: #6366f1; font-size: 10px; } 
+        #palette-btn { background: #ec4899; font-size: 10px; }
+        #nowcast-btn { background: #eab308; font-size: 10px; }
         #frame-label { color:white; font-family:sans-serif; font-size: 10px; width: 40px; text-align: center; font-weight: bold; }
+
+        /* Nowcast Modal */
+        #nowcast-modal {
+            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 85%; max-width: 400px; background: rgba(20, 20, 20, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px;
+            padding: 15px; z-index: 2000; backdrop-filter: blur(10px); color: white;
+            font-family: sans-serif; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .modal-title { font-size: 14px; font-weight: bold; margin: 0; }
+        .close-btn { background: none; border: none; color: #aaa; font-size: 18px; cursor: pointer; }
+        #nowcast-content { font-size: 12px; }
 
         .leaflet-control-attribution { display: none !important; }
     </style>
@@ -74,6 +86,7 @@
     });
   }
 </script>
+
 </head>
 <body>
     <div id="top-hud">
@@ -88,8 +101,18 @@
     <div id="controls">
         <button class="btn" id="recenter-btn" onclick="recenterMap()">O</button>
         <button class="btn" id="range-btn" onclick="toggleRings()">R</button>
+        <button class="btn" id="palette-btn" onclick="togglePalette()" title="Toggle Intensity Palette">P</button>
+        <button class="btn" id="nowcast-btn" onclick="showNowcast()" title="4-Hour Nowcast">N</button>
         <button class="btn" id="play-btn" onclick="togglePlayback()">></button>
         <div id="frame-label">NOW</div>
+    </div>
+
+    <div id="nowcast-modal">
+        <div class="modal-header">
+            <h3 class="modal-title">4-Hour Rain Nowcast</h3>
+            <button class="close-btn" onclick="closeNowcast()">×</button>
+        </div>
+        <div id="nowcast-content">Loading...</div>
     </div>
 
     <div id="map"></div>
@@ -99,6 +122,11 @@
         let userLat, userLng;
         let rangeGroup = L.layerGroup(); 
         let ringsShowing = false;
+        
+        // Palette Management
+        let currentPalette = 0;
+        const palettes = [0, 2, 4]; // 0: Rainbow, 2: Dark Sky, 4: Nexrad
+        const paletteNames = ["Rainbow", "DarkSky", "Nexrad"];
         
         const offsets = [0, 600, 1200, 1800, 2400, 3000, 3600]; 
         
@@ -127,8 +155,8 @@
                     (error) => {
                         document.getElementById('timestamp').innerHTML = "Location Error";
                         alert("Unable to retrieve your location: " + error.message + ". Defaulting to London.");
-                        userLat = 51.5074; // Default fallback latitude
-                        userLng = -0.1278; // Default fallback longitude
+                        userLat = 51.5074; 
+                        userLng = -0.1278; 
                         buildMap();
                     },
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -149,7 +177,7 @@
                 const snapshot = nowSec - (nowSec % 600) - 600;
 
                 offsets.forEach((offset, index) => {
-                    const url = `https://api.rainbow.ai/tiles/v1/precip/${snapshot}/${offset}/{z}/{x}/{y}?token=${token}`;
+                    const url = `https://api.rainbow.ai/tiles/v1/precip/${snapshot}/${offset}/{z}/{x}/{y}?token=${token}&color=${palettes[currentPalette]}`;
                     const layer = L.tileLayer(url, { opacity: index === 0 ? 0.8 : 0, maxZoom: 12 }).addTo(map);
                     layers.push(layer);
                 });
@@ -157,37 +185,23 @@
                 // User Location Pin
                 L.circleMarker([userLat, userLng], { radius: 4, fillColor: "#00f2ff", color: "#fff", weight: 1.5, fillOpacity: 1 }).addTo(map);
                 
-                // Define distances in MILES
+                // Draw Range Rings
                 const miles = [5, 10, 20, 30, 50, 100]; 
                 miles.forEach(m => {
                     const meters = m * 1609.34;
-                    
-                    // Draw the Circle
                     L.circle([userLat, userLng], {
-                        radius: meters,
-                        color: 'rgba(255, 255, 255, 0.75)',
-                        weight: 1,
-                        fill: false,
-                        dashArray: '5, 10',
-                        interactive: false
+                        radius: meters, color: 'rgba(255, 255, 255, 0.75)', weight: 1, fill: false, dashArray: '5, 10', interactive: false
                     }).addTo(rangeGroup);
 
-                    // Add Label (positioned North of center)
-                    // approx 1 degree lat = 69 miles
                     const labelLat = userLat + (m / 69.0);
                     L.marker([labelLat, userLng], {
-                        icon: L.divIcon({
-                            className: 'ring-label',
-                            html: `${m} mi`,
-                            iconSize: [40, 12],
-                            iconAnchor: [20, 6]
-                        }),
+                        icon: L.divIcon({ className: 'ring-label', html: `${m} mi`, iconSize: [40, 12], iconAnchor: [20, 6] }),
                         interactive: false
                     }).addTo(rangeGroup);
                 });
 
                 const timeStr = new Date(snapshot * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                document.getElementById('timestamp').innerHTML = `Radar: ${timeStr}`;
+                document.getElementById('timestamp').innerHTML = `Radar: ${timeStr} | ${paletteNames[currentPalette]}`;
                 
                 setTimeout(() => { map.invalidateSize(); }, 500);
             } catch (e) {
@@ -195,16 +209,28 @@
             }
         }
 
+        // --- PALETTE TOGGLE ---
+        function togglePalette() {
+            currentPalette = (currentPalette + 1) % palettes.length;
+            const nowSec = Math.floor(Date.now() / 1000);
+            const snapshot = nowSec - (nowSec % 600) - 600;
+            
+            // Update URLs for all layers to refresh the intensity look
+            layers.forEach((layer, index) => {
+                const offset = offsets[index];
+                const newUrl = `https://api.rainbow.ai/tiles/v1/precip/${snapshot}/${offset}/{z}/{x}/{y}?token=${token}&color=${palettes[currentPalette]}`;
+                layer.setUrl(newUrl);
+            });
+            
+            const timeStr = new Date(snapshot * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('timestamp').innerHTML = `Radar: ${timeStr} | ${paletteNames[currentPalette]}`;
+        }
+
         function toggleRings() {
             ringsShowing = !ringsShowing;
             const btn = document.getElementById('range-btn');
-            if (ringsShowing) {
-                rangeGroup.addTo(map);
-                btn.style.background = "#10b981"; 
-            } else {
-                map.removeLayer(rangeGroup);
-                btn.style.background = "#6366f1"; 
-            }
+            if (ringsShowing) { rangeGroup.addTo(map); btn.style.background = "#10b981"; } 
+            else { map.removeLayer(rangeGroup); btn.style.background = "#6366f1"; }
         }
 
         function recenterMap() {
@@ -234,6 +260,100 @@
                 currentFrame = 0;
                 showFrame(0);
             }
+        }
+
+        // --- NOWCAST FUNCTIONALITY ---
+        async function showNowcast() {
+            document.getElementById('nowcast-modal').style.display = 'block';
+            const content = document.getElementById('nowcast-content');
+            content.innerHTML = 'Loading Nowcast data...';
+
+            try {
+                // We use the same token for the Nowcast lookup
+                const url = `https://api.rainbow.ai/nowcast/v1/precip/${userLng}/${userLat}?token=${token}`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("API Request Failed");
+                const data = await response.json();
+                
+                renderNowcast(data);
+            } catch (e) {
+                content.innerHTML = `<span style="color: #ef4444;">Error loading Nowcast: ${e.message}</span>`;
+            }
+        }
+
+        function closeNowcast() {
+            document.getElementById('nowcast-modal').style.display = 'none';
+        }
+
+        function renderNowcast(data) {
+            if (!data.forecast || data.forecast.length === 0) {
+                document.getElementById('nowcast-content').innerHTML = "No precipitation data available.";
+                return;
+            }
+            
+            const maxRate = Math.max(...data.forecast.map(f => f.precipRate));
+            
+            // Build Graph
+            let html = `<div style="display:flex; height: 80px; align-items: flex-end; gap: 1px; border-bottom: 1px solid #666; margin-top: 5px;">`;
+            
+            let precipStarted = false;
+            let startTimestamp = null;
+            let endTimestamp = null;
+            
+            data.forecast.forEach(f => {
+                // Scaling heights to max rate (capped visual height)
+                const height = maxRate > 0 ? (f.precipRate / Math.max(maxRate, 10)) * 100 : 0; 
+                const displayHeight = Math.min(height, 100);
+                
+                let color = '#3b82f6'; // Default Rain (Blue)
+                if (f.precipType === 'snow') color = '#fff';
+                else if (f.precipType === 'mixed') color = '#a855f7'; // Purple
+                
+                html += `<div style="flex: 1; background: ${color}; height: ${displayHeight}%; min-height: ${f.precipRate > 0 ? 1 : 0}px;"></div>`;
+                
+                // Track start/stop times
+                if (f.precipRate > 0) {
+                    if (!precipStarted) {
+                        precipStarted = true;
+                        startTimestamp = f.timestampBegin;
+                    }
+                    endTimestamp = f.timestampEnd; 
+                }
+            });
+            html += `</div>`;
+            
+            // Time Labels
+            const startTimeStr = new Date(data.forecast[0].timestampBegin * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const endTimeStr = new Date(data.forecast[data.forecast.length-1].timestampEnd * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            html += `<div style="display:flex; justify-content: space-between; font-size: 10px; color: #aaa; margin-top: 4px;">
+                <span>${startTimeStr}</span>
+                <span>+4 Hours (${endTimeStr})</span>
+            </div>`;
+            
+            // Text Summary & Relative Intensity
+            let textSummary = `<div style="margin-top: 15px; font-size: 12px; line-height: 1.5; color: #fff;">`;
+            
+            if (maxRate === 0) {
+                textSummary += `<strong>No precipitation expected</strong> in the next 4 hours.`;
+            } else {
+                const getIntensity = (rate) => {
+                    if (rate < 0.5) return "Very Light";
+                    if (rate < 2.5) return "Light";
+                    if (rate < 10) return "Moderate";
+                    if (rate < 50) return "Heavy";
+                    return "Violent";
+                };
+                
+                const startStr = startTimestamp ? new Date(startTimestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+                const endStr = endTimestamp ? new Date(endTimestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+                
+                textSummary += `<strong>Max Intensity:</strong> ${getIntensity(maxRate)} (${maxRate.toFixed(1)} mm/h)<br>`;
+                textSummary += `<strong>Expected Period:</strong> ${startStr} - ${endStr}`;
+            }
+            textSummary += `</div>`;
+            
+            document.getElementById('nowcast-content').innerHTML = html + textSummary;
         }
 
         window.onload = initMap;
