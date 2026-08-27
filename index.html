@@ -155,15 +155,26 @@
         const offsets = [0, 600, 1200, 1800, 2400, 3000, 3600]; 
         
         // --- API KEY MANAGEMENT ---
-        let token = localStorage.getItem('rainbow_api_key');
-        if (!token) {
-            token = prompt("Please enter your Rainbow API key:");
-            if (token) {
-                localStorage.setItem('rainbow_api_key', token);
-            } else {
-                alert("API key is required for the radar to work. Please refresh the page to try again.");
-            }
-        }
+let token = localStorage.getItem('rainbow_api_key');
+if (!token) {
+    token = prompt("Please enter your Rainbow API key:");
+    if (token) {
+        localStorage.setItem('rainbow_api_key', token);
+    } else {
+        alert("API key is required for the radar to work. Please refresh the page to try again.");
+    }
+}
+
+// NEW: Carto API Key Management
+let cartoToken = localStorage.getItem('carto_api_key');
+if (!cartoToken) {
+    cartoToken = prompt("Please enter your Carto base map API key:");
+    if (cartoToken) {
+        localStorage.setItem('carto_api_key', cartoToken);
+    } else {
+        alert("Carto API key is required for the base map to load. Please refresh the page to try again.");
+    }
+}
 
         // --- GEOLOCATION MANAGEMENT ---
         function initMap() {
@@ -195,7 +206,7 @@
         function buildMap() {
             try {
                 map = L.map('map', { zoomControl: false, attributionControl: false }).setView([userLat, userLng], 7);
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+                L.tileLayer(`https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${cartoToken}`).addTo(map);
 
                 const nowSec = Math.floor(Date.now() / 1000);
                 const snapshot = nowSec - (nowSec % 600) - 600;
