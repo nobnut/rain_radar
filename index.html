@@ -206,7 +206,7 @@ if (!cartoToken) {
         function buildMap() {
             try {
                 map = L.map('map', { zoomControl: false, attributionControl: false }).setView([userLat, userLng], 7);
-                L.tileLayer(`https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${cartoToken}`).addTo(map);
+                L.tileLayer(`https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png?key=${cartoToken}`).addTo(map);
 
                 const nowSec = Math.floor(Date.now() / 1000);
                 const snapshot = nowSec - (nowSec % 600) - 600;
