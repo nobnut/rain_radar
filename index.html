@@ -189,9 +189,9 @@ if (!cartoToken) {
                     },
                     (error) => {
                         document.getElementById('timestamp').innerHTML = "Location Error";
-                        alert("Unable to retrieve your location: " + error.message + ". Defaulting to London.");
-                        userLat = 51.5074; 
-                        userLng = -0.1278; 
+                        alert("Unable to retrieve your location: " + error.message + ". Defaulting to local.");
+                        userLat = 51.1539; 
+                        userLng = -0.4370; 
                         buildMap();
                     },
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
