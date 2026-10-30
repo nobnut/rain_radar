@@ -194,7 +194,7 @@ if (!cartoToken) {
                         userLng = -0.4370; 
                         buildMap();
                     },
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
                 );
             } else {
                 document.getElementById('timestamp').innerHTML = "Geo Not Supported";
