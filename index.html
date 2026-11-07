@@ -118,7 +118,9 @@
 
     <script>
         let map, layers = [], currentFrame = 0, isPlaying = false, playInterval;
-        let userLat, userLng;
+        // Default preset coordinates loaded immediately
+        let userLat = 51.1539, userLng = -0.4370;
+        let userMarker;
         let rangeGroup = L.layerGroup(); 
         let ringsShowing = false;
         
@@ -156,31 +158,65 @@
             }
         }
 
-        // --- GEOLOCATION MANAGEMENT ---
+        // --- GEOLOCATION & STARTUP MANAGEMENT ---
         function initMap() {
-            document.getElementById('timestamp').innerHTML = "Locating...";
+            // 1. Build map immediately using the default coordinates
+            buildMap();
             
+            // 2. Acquire live GPS location in the background and smoothly update
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
-                        userLat = position.coords.latitude;
-                        userLng = position.coords.longitude;
-                        buildMap();
+                        const newLat = position.coords.latitude;
+                        const newLng = position.coords.longitude;
+                        
+                        // Check if position differs noticeably from default before flying
+                        const hasMoved = Math.abs(newLat - userLat) > 0.0005 || Math.abs(newLng - userLng) > 0.0005;
+                        
+                        userLat = newLat;
+                        userLng = newLng;
+                        updateLocationElements();
+                        
+                        if (hasMoved && map) {
+                            map.flyTo([userLat, userLng], map.getZoom(), { duration: 1.5 });
+                        }
                     },
                     (error) => {
-                        console.warn("Unable to retrieve your location: " + error.message + ". Defaulting to local.");
-                        userLat = 51.1539; 
-                        userLng = -0.4370; 
-                        buildMap();
+                        console.warn("Unable to retrieve live location (" + error.message + "). Staying on default location.");
                     },
-                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                    { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
                 );
-            } else {
-                console.warn("Geolocation is not supported by your browser. Defaulting to local.");
-                userLat = 51.1539; 
-                userLng = -0.4370; 
-                buildMap();
             }
+        }
+
+        // --- UPDATE PIN & RANGE RINGS ---
+        function updateLocationElements() {
+            if (!map) return;
+
+            // Create or move the user location pin
+            if (userMarker) {
+                userMarker.setLatLng([userLat, userLng]);
+            } else {
+                userMarker = L.circleMarker([userLat, userLng], {
+                    radius: 4, fillColor: "#00f2ff", color: "#fff", weight: 1.5, fillOpacity: 1
+                }).addTo(map);
+            }
+
+            // Clear and redraw range rings around the updated coordinates
+            rangeGroup.clearLayers();
+            const miles = [5, 10, 20, 30, 50, 100]; 
+            miles.forEach(m => {
+                const meters = m * 1609.34;
+                L.circle([userLat, userLng], {
+                    radius: meters, color: 'rgba(255, 255, 255, 0.75)', weight: 1, fill: false, dashArray: '5, 10', interactive: false
+                }).addTo(rangeGroup);
+
+                const labelLat = userLat + (m / 69.0);
+                L.marker([labelLat, userLng], {
+                    icon: L.divIcon({ className: 'ring-label', html: `${m} mi`, iconSize: [40, 12], iconAnchor: [20, 6] }),
+                    interactive: false
+                }).addTo(rangeGroup);
+            });
         }
 
         // --- MAP INITIALIZATION ---
@@ -198,23 +234,8 @@
                     layers.push(layer);
                 });
 
-                // User Location Pin
-                L.circleMarker([userLat, userLng], { radius: 4, fillColor: "#00f2ff", color: "#fff", weight: 1.5, fillOpacity: 1 }).addTo(map);
-                
-                // Draw Range Rings
-                const miles = [5, 10, 20, 30, 50, 100]; 
-                miles.forEach(m => {
-                    const meters = m * 1609.34;
-                    L.circle([userLat, userLng], {
-                        radius: meters, color: 'rgba(255, 255, 255, 0.75)', weight: 1, fill: false, dashArray: '5, 10', interactive: false
-                    }).addTo(rangeGroup);
-
-                    const labelLat = userLat + (m / 69.0);
-                    L.marker([labelLat, userLng], {
-                        icon: L.divIcon({ className: 'ring-label', html: `${m} mi`, iconSize: [40, 12], iconAnchor: [20, 6] }),
-                        interactive: false
-                    }).addTo(rangeGroup);
-                });
+                // Draw initial pin and range rings
+                updateLocationElements();
 
                 const timeStr = new Date(snapshot * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 document.getElementById('timestamp').innerHTML = `Radar: ${timeStr} | ${paletteNames[currentPalette]}`;
