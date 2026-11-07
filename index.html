@@ -70,40 +70,22 @@
         .leaflet-control-attribution { display: none !important; }
     </style>
     <!-- Link to the manifest file -->
-<link rel="manifest" href="./manifest.json">
+    <link rel="manifest" href="./manifest.json">
 
-<!-- Register the Service Worker -->
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(registration => {
-          console.log('Service Worker registered successfully');
-        })
-        .catch(error => {
-          console.log('Service Worker registration failed:', error);
+    <!-- Register the Service Worker -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then(registration => {
+              console.log('Service Worker registered successfully');
+            })
+            .catch(error => {
+              console.log('Service Worker registration failed:', error);
+            });
         });
-    });
-  }
-</script>
-<!-- Link to the manifest file -->
-<link rel="manifest" href="./manifest.json">
-
-<!-- Register the Service Worker -->
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(registration => {
-          console.log('Service Worker registered successfully');
-        })
-        .catch(error => {
-          console.log('Service Worker registration failed:', error);
-        });
-    });
-  }
-</script>
-
+      }
+    </script>
 </head>
 <body>
     <div id="top-hud">
@@ -145,36 +127,34 @@
         const palettes = [0, 2, 4]; // 0: Rainbow, 2: Dark Sky, 4: Nexrad
         const paletteNames = ["Rainbow", "DarkSky", "Nexrad"];
         
-        // NEW: Add corresponding CSS gradients for the legend
         const paletteGradients = [
-            "linear-gradient(to right, #72ff72, #ffff00, #ffaa00, #ff0000, #ff00ff)", // Rainbow (Your original)
-            "linear-gradient(to right, #5bc0de, #0275d8, #6610f2, #d63384)",         // Dark Sky (Blues to Purples)
-            "linear-gradient(to right, #00ecec, #00ff00, #ffff00, #ff0000, #ff00ff)" // Nexrad (Classic Radar)
+            "linear-gradient(to right, #72ff72, #ffff00, #ffaa00, #ff0000, #ff00ff)", // Rainbow
+            "linear-gradient(to right, #5bc0de, #0275d8, #6610f2, #d63384)",         // Dark Sky
+            "linear-gradient(to right, #00ecec, #00ff00, #ffff00, #ff0000, #ff00ff)" // Nexrad
         ];
         
         const offsets = [0, 600, 1200, 1800, 2400, 3000, 3600]; 
         
         // --- API KEY MANAGEMENT ---
-let token = localStorage.getItem('rainbow_api_key');
-if (!token) {
-    token = prompt("Please enter your Rainbow API key:");
-    if (token) {
-        localStorage.setItem('rainbow_api_key', token);
-    } else {
-        alert("API key is required for the radar to work. Please refresh the page to try again.");
-    }
-}
+        let token = localStorage.getItem('rainbow_api_key');
+        if (!token) {
+            token = prompt("Please enter your Rainbow API key:");
+            if (token) {
+                localStorage.setItem('rainbow_api_key', token);
+            } else {
+                alert("API key is required for the radar to work. Please refresh the page to try again.");
+            }
+        }
 
-// NEW: Carto API Key Management
-let cartoToken = localStorage.getItem('carto_api_key');
-if (!cartoToken) {
-    cartoToken = prompt("Please enter your Carto base map API key:");
-    if (cartoToken) {
-        localStorage.setItem('carto_api_key', cartoToken);
-    } else {
-        alert("Carto API key is required for the base map to load. Please refresh the page to try again.");
-    }
-}
+        let cartoToken = localStorage.getItem('carto_api_key');
+        if (!cartoToken) {
+            cartoToken = prompt("Please enter your Carto base map API key:");
+            if (cartoToken) {
+                localStorage.setItem('carto_api_key', cartoToken);
+            } else {
+                alert("Carto API key is required for the base map to load. Please refresh the page to try again.");
+            }
+        }
 
         // --- GEOLOCATION MANAGEMENT ---
         function initMap() {
@@ -188,8 +168,7 @@ if (!cartoToken) {
                         buildMap();
                     },
                     (error) => {
-                        document.getElementById('timestamp').innerHTML = "Location Error";
-                        alert("Unable to retrieve your location: " + error.message + ". Defaulting to local.");
+                        console.warn("Unable to retrieve your location: " + error.message + ". Defaulting to local.");
                         userLat = 51.1539; 
                         userLng = -0.4370; 
                         buildMap();
@@ -197,8 +176,10 @@ if (!cartoToken) {
                     { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
                 );
             } else {
-                document.getElementById('timestamp').innerHTML = "Geo Not Supported";
-                alert("Geolocation is not supported by your browser.");
+                console.warn("Geolocation is not supported by your browser. Defaulting to local.");
+                userLat = 51.1539; 
+                userLng = -0.4370; 
+                buildMap();
             }
         }
 
@@ -250,7 +231,6 @@ if (!cartoToken) {
             const nowSec = Math.floor(Date.now() / 1000);
             const snapshot = nowSec - (nowSec % 600) - 600;
             
-            // Update URLs for all layers to refresh the intensity look
             layers.forEach((layer, index) => {
                 const offset = offsets[index];
                 const newUrl = `https://api.rainbow.ai/tiles/v1/precip/${snapshot}/${offset}/{z}/{x}/{y}?token=${token}&color=${palettes[currentPalette]}`;
@@ -260,7 +240,6 @@ if (!cartoToken) {
             const timeStr = new Date(snapshot * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             document.getElementById('timestamp').innerHTML = `Radar: ${timeStr} | ${paletteNames[currentPalette]}`;
             
-            // NEW: Update the legend bar gradient to match the current palette
             document.querySelector('.grad').style.background = paletteGradients[currentPalette];
         }
 
@@ -300,23 +279,18 @@ if (!cartoToken) {
             }
         }
 
-                // --- NOWCAST FUNCTIONALITY ---
+        // --- NOWCAST FUNCTIONALITY ---
         async function showNowcast() {
             document.getElementById('nowcast-modal').style.display = 'block';
             const content = document.getElementById('nowcast-content');
             content.innerHTML = 'Loading Nowcast data...';
 
             try {
-                // 1. Define the actual Rainbow API URL
                 const rainbowUrl = encodeURIComponent(`https://api.rainbow.ai/nowcast/v1/precip/${userLng}/${userLat}?token=${token}`);
-                
-                // 2. Pass it to your existing Cloudflare Worker's 'url' parameter
-                // IMPORTANT: Replace the URL below with your actual worker address!
                 const url = `https://rss-proxy.slaterjohn2.workers.dev/?url=${rainbowUrl}`;
                 
                 const response = await fetch(url);
                 
-                // Enhanced error handling to catch non-JSON responses
                 if (!response.ok) {
                     const errText = await response.text();
                     throw new Error(`API Error ${response.status}: ${errText || "Unknown error"}`);
@@ -342,7 +316,6 @@ if (!cartoToken) {
             
             const maxRate = Math.max(...data.forecast.map(f => f.precipRate));
             
-            // Build Graph
             let html = `<div style="display:flex; height: 80px; align-items: flex-end; gap: 1px; border-bottom: 1px solid #666; margin-top: 5px;">`;
             
             let precipStarted = false;
@@ -350,17 +323,15 @@ if (!cartoToken) {
             let endTimestamp = null;
             
             data.forecast.forEach(f => {
-                // Scaling heights to max rate (capped visual height)
                 const height = maxRate > 0 ? (f.precipRate / Math.max(maxRate, 10)) * 100 : 0; 
                 const displayHeight = Math.min(height, 100);
                 
-                let color = '#3b82f6'; // Default Rain (Blue)
+                let color = '#3b82f6';
                 if (f.precipType === 'snow') color = '#fff';
-                else if (f.precipType === 'mixed') color = '#a855f7'; // Purple
+                else if (f.precipType === 'mixed') color = '#a855f7';
                 
                 html += `<div style="flex: 1; background: ${color}; height: ${displayHeight}%; min-height: ${f.precipRate > 0 ? 1 : 0}px;"></div>`;
                 
-                // Track start/stop times
                 if (f.precipRate > 0) {
                     if (!precipStarted) {
                         precipStarted = true;
@@ -371,7 +342,6 @@ if (!cartoToken) {
             });
             html += `</div>`;
             
-            // Time Labels
             const startTimeStr = new Date(data.forecast[0].timestampBegin * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             const endTimeStr = new Date(data.forecast[data.forecast.length-1].timestampEnd * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             
@@ -380,7 +350,6 @@ if (!cartoToken) {
                 <span>+4 Hours (${endTimeStr})</span>
             </div>`;
             
-            // Text Summary & Relative Intensity
             let textSummary = `<div style="margin-top: 15px; font-size: 12px; line-height: 1.5; color: #fff;">`;
             
             if (maxRate === 0) {
